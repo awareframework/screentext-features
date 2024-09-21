@@ -1,0 +1,8 @@
+pandas
+nltk
+jieba
+langid
+textblob
+vaderSentiment
+textstat
+spacy
