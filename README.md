@@ -4,5 +4,9 @@ This repo will do the following:
 2. Generate features
 
 How to use?
-1. pip install -r requirements.txt
-2. python run.py
+Step 1:
+If use conda environment:
+  Run: while read requirement; do conda install --yes $requirement || pip install $requirement; done < requirements.txt
+Else: pip install -r requirements.txt
+
+Step2: python run.py
