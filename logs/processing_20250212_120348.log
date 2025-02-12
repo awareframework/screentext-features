@@ -1,0 +1,15 @@
+2025-02-12 12:03:48,714 - INFO - Found 3 participant folders
+2025-02-12 12:03:48,714 - INFO - Using 48 worker threads
+2025-02-12 12:03:48,716 - INFO - Started processing participant 1235
+2025-02-12 12:03:48,716 - INFO - Started processing participant 1957
+2025-02-12 12:03:48,717 - INFO - Started processing participant 1234
+2025-02-12 12:03:51,029 - INFO - Successfully processed participant 1234: 118 records
+2025-02-12 12:03:51,029 - INFO - Progress: 1/3 completed
+2025-02-12 12:03:51,031 - INFO - Successfully processed participant 1235: 118 records
+2025-02-12 12:03:51,031 - INFO - Progress: 2/3 completed
+2025-02-12 12:05:05,670 - INFO - Successfully processed participant 1957: 13845 records
+2025-02-12 12:05:05,702 - INFO - Progress: 3/3 completed
+2025-02-12 12:05:05,703 - INFO - 
+Processing Complete!
+2025-02-12 12:05:05,703 - INFO - Successfully processed: 3 participants
+2025-02-12 12:05:05,703 - INFO - Failed to process: 0 participants

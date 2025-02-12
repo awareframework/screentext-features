@@ -274,24 +274,32 @@ def analyze_filtered_results_multi_participant(all_dfs):
     plt.tight_layout()
     return fig, analysis_df
 
-# Modified main section
-# python generate_system_app_transition_filtered_files.py --base_dir step1_data --mode plot
-# python generate_system_app_transition_filtered_files.py --base_dir step1_data --mode generate --threshold 2.0
-# python generate_system_app_transition_filtered_files.py --mode plot --base_dir path/to/data
-# python generate_system_app_transition_filtered_files.py --base_dir step1_data --mode generate --threshold 2.0 --participant 1957
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Process app transition data with flexible options')
-    parser.add_argument('--base_dir', default='step1_data', help='Base directory containing participant data')
-    parser.add_argument('--mode', choices=['plot', 'generate'], required=True, 
-                        help='Mode of operation: "plot" to analyze thresholds, "generate" to create filtered files')
-    parser.add_argument('--threshold', type=float, help='Specific threshold for generating filtered files')
-    parser.add_argument('--participant', help='Specific participant ID to process')
-    
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate filtered system app transition files."
+    )
+    # Accept both -p and --participant flags
+    parser.add_argument(
+        '-p', '--participant', type=str,
+        help="Participant ID to process (e.g., 1234). Leave empty to process all participants."
+    )
+    parser.add_argument(
+        '--base_dir', type=str, default='step1_data',
+        help="Base directory containing participant folders (default: step1_data)"
+    )
+    parser.add_argument(
+        '--mode', type=str, default="generate",
+        help="Mode of operation (default: generate)"
+    )
+    parser.add_argument(
+        '--threshold', type=float, default=2.0,
+        help="Threshold value (default: 2.0)"
+    )
     args = parser.parse_args()
+
     base_dir = args.base_dir
-    
-    # Load participant data
     all_dfs = {}
+
     if args.participant:
         # Load single participant
         clean_df_path = os.path.join(base_dir, args.participant, "clean_df.jsonl")
@@ -303,11 +311,13 @@ if __name__ == "__main__":
     else:
         # Load all participants
         for participant_folder in os.listdir(base_dir):
-            clean_df_path = os.path.join(base_dir, participant_folder, "clean_df.jsonl")
-            if os.path.exists(clean_df_path):
-                print(f"Loading data for participant {participant_folder}...")
-                all_dfs[participant_folder] = load_jsonl(clean_df_path)
-    
+            participant_path = os.path.join(base_dir, participant_folder)
+            if os.path.isdir(participant_path):
+                clean_df_path = os.path.join(participant_path, "clean_df.jsonl")
+                if os.path.exists(clean_df_path):
+                    print(f"Loading data for participant {participant_folder}...")
+                    all_dfs[participant_folder] = load_jsonl(clean_df_path)
+
     if args.mode == 'plot':
         print(f"\nAnalyzing {len(all_dfs)} participants...")
         fig, analysis_df = analyze_filtered_results_multi_participant(all_dfs)
@@ -339,3 +349,6 @@ if __name__ == "__main__":
             filtered_df = remove_system_app_transitions(df.copy(), args.threshold)
             filtered_df.to_json(filtered_output_file, orient='records', lines=True)
             print(f"Saved to {filtered_output_file}")
+
+if __name__ == '__main__':
+    main()
