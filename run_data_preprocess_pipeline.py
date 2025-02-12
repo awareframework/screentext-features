@@ -131,7 +131,7 @@ def main():
     for participant in participants:
         print(f"Processing participant {participant}")
         run_command(["python", "data_preprocessing/add_day_id.py", "step1_data", "-p", participant])
-        run_command(["python", "data_preprocessing/session_metrics_calculator_jsonl.py", "-p", participant, "--timezone", args.timezone])
+        run_command(["python", "data_preprocessing/session_metrics_calculator_jsonl.py", "-p", participant])
 
 
 if __name__ == '__main__':
