@@ -3,8 +3,8 @@ Generate App Package Pair Script
 
 This script generates a mapping between package names and their corresponding application names 
 from the 'applications_foreground.jsonl' file found in a specified raw data directory. It also ensures 
-that a column indicating if an app is a system app ('is_system_app') is present. The output is 
-saved as 'app_package_pairs.jsonl' in the designated resources directory.
+that an 'is_system_app' column is present. The output is saved as 'app_package_pairs.jsonl' in the designated 
+resources directory.
 
 Usage:
     Process a specific participant:

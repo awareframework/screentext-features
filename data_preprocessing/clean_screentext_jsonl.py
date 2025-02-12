@@ -92,6 +92,14 @@ def load_screentext_data(paths):
     return load_jsonl(json_file)
 
 def filter_and_group_by_rect(text):
+    """Filter and group text content based on 'Rect' segments.
+    
+    Args:
+        text (str): Input text to filter.
+    
+    Returns:
+        str: Joined string that groups content by detected Rect segments.
+    """
     pattern = r'([\s\S]*?)Rect\(([-]?\d+),\s*([-]?\d+)\s*-\s*([-]?\d+),\s*([-]?\d+)\)\|\|'
     matches = re.findall(pattern, text)
 
@@ -190,6 +198,16 @@ def get_sessions(paths, threshold=45000):
     return result_df
 
 def add_session_id_to_texts(text_df, session_df, paths):
+    """Assign session and active period IDs to each text record.
+    
+    Args:
+        text_df (pd.DataFrame): DataFrame containing screentext records.
+        session_df (pd.DataFrame): DataFrame containing session details.
+        paths (DataPaths): Object holding directory paths.
+    
+    Returns:
+        pd.DataFrame: Text DataFrame updated with session_id and active_period_id.
+    """
     print(f"\nInitial text records: {len(text_df)}")
     print(f"Number of sessions: {len(session_df)}")
     
@@ -210,7 +228,6 @@ def add_session_id_to_texts(text_df, session_df, paths):
         
         for idx, period in enumerate(active_periods):
             mask = (text_df['timestamp'] >= period['start']) & (text_df['timestamp'] < period['end'])
-            
             text_df.loc[mask, 'session_id'] = int(session_id)
             text_df.loc[mask, 'active_period_id'] = f"{session_id}_{idx + 1}"
         
@@ -232,7 +249,18 @@ def add_session_id_to_texts(text_df, session_df, paths):
     return text_df
 
 def add_application_info(df, paths):
-    """Add application info for package names using app_package_pairs.jsonl"""
+    """Enhance records with application information.
+    
+    Args:
+        df (pd.DataFrame): DataFrame with package_name field.
+        paths (DataPaths): Object holding directory paths.
+    
+    Returns:
+        pd.DataFrame: Updated DataFrame containing application_name and is_system_app.
+    
+    Raises:
+        FileNotFoundError: If the app_package_pairs.jsonl file does not exist.
+    """
     root_resources_dir = paths.get_root_resources_dir()
     app_pairs_file = os.path.join(root_resources_dir, "app_package_pairs.jsonl")
     
@@ -279,6 +307,15 @@ def add_application_info(df, paths):
     return df
 
 def process_all_sessions(df, paths):
+    """Merge screentext records with session details.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing screentext data with session IDs.
+        paths (DataPaths): Object holding directory paths.
+    
+    Returns:
+        pd.DataFrame: DataFrame after consolidating all session data.
+    """
     sessions_file = os.path.join(paths.get_output_dir(), "sessions.jsonl")
     sessions_df = load_jsonl(sessions_file)
     
@@ -313,22 +350,33 @@ def process_all_sessions(df, paths):
 
     return result_df
 
-def convert_timestamp_column(df):
+def convert_timestamp_column(df, timezone_str="Australia/Melbourne"):
     """
-    Convert timestamp columns to Melbourne time (accounting for DST) and compute duration.
+    Convert timestamp columns to the provided timezone (accounting for DST) 
+    and compute duration.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame with timestamp columns.
+        timezone_str (str): Timezone to convert to (default: Australia/Melbourne).
+    
+    Returns:
+        pd.DataFrame: Updated DataFrame with datetime conversions.
     """
-    melbourne_tz = pytz.timezone('Australia/Melbourne')
+    try:
+        tz = pytz.timezone(timezone_str)
+    except pytz.exceptions.UnknownTimeZoneError:
+        print(f"Unknown timezone '{timezone_str}'. Falling back to UTC.")
+        tz = pytz.timezone("UTC")
     
     def convert_with_offset(ts):
         dt = pd.to_datetime(ts, unit='ms', utc=True)
-        melb_time = dt.tz_convert(melbourne_tz)
-        return melb_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        local_time = dt.tz_convert(tz)
+        return local_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
     df['start_datetime'] = df['start_timestamp'].apply(convert_with_offset)
     df['end_datetime'] = df['end_timestamp'].apply(convert_with_offset)
     df['duration_seconds'] = ((df['end_timestamp'] - df['start_timestamp']) / 1000).round(2)
-    df['utc_offset'] = df['start_timestamp'].apply(lambda x: 
-        melbourne_tz.utcoffset(pd.to_datetime(x, unit='ms')).total_seconds() / 3600)
+    df['utc_offset'] = df['start_timestamp'].apply(lambda x: tz.utcoffset(pd.to_datetime(x, unit='ms')).total_seconds() / 3600)
     
     df = df.drop(columns=['start_timestamp', 'end_timestamp'])
     
@@ -424,12 +472,13 @@ def renumber_sessions(df):
     
     return df
 
-def clean_screentext(paths):
+def clean_screentext(paths, timezone="Australia/Melbourne"):
     """
     Clean and process screentext data, merging session details, application info, and formatting timestamps.
     
     Parameters:
         paths (DataPaths): Object holding path configuration.
+        timezone (str): Timezone for timestamp conversion, default is Australia/Melbourne.
     
     Returns:
         pd.DataFrame: The final cleaned screentext DataFrame.
@@ -447,7 +496,7 @@ def clean_screentext(paths):
 
     if len(df) > 0:
         df = add_application_info(df, paths)
-        df = convert_timestamp_column(df)
+        df = convert_timestamp_column(df, timezone_str=timezone)
         df = renumber_sessions(df)
         
         output_file = os.path.join(output_dir, "clean_df.jsonl")
@@ -464,8 +513,15 @@ def main():
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-p', '--participant', type=str, help="Participant ID to process (e.g., 1234)")
-    group.add_argument('--all', action='store_true', help="Process all participants in the input directory")
+    group.add_argument('--all', action='store_true', help="Process all participants")
+    parser.add_argument('--timezone', type=str, default="Australia/Melbourne", 
+                        help="Timezone for timestamp conversion (default: Australia/Melbourne)")
+    # New flag to override timezone with UTC
+    parser.add_argument('--utc', action='store_true', help="If set, overrides timezone with UTC")
     args = parser.parse_args()
+    
+    if args.utc:
+        args.timezone = "UTC"
 
     # Set default base directories.
     base_input = "participant_data"
@@ -475,7 +531,7 @@ def main():
         print(f"Processing participant {args.participant} ...")
         paths = DataPaths(base_input=base_input, base_output=base_output, p_id=args.participant)
         try:
-            clean_screentext(paths)
+            clean_screentext(paths, timezone=args.timezone)
         except Exception as e:
             print(f"Error processing participant {args.participant}: {str(e)}")
     else:
@@ -488,7 +544,7 @@ def main():
             print(f"\nProcessing participant {p} ...")
             paths = DataPaths(base_input=base_input, base_output=base_output, p_id=p)
             try:
-                clean_screentext(paths)
+                clean_screentext(paths, timezone=args.timezone)
             except Exception as e:
                 print(f"Error processing participant {p}: {str(e)}")
 

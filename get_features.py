@@ -9,15 +9,15 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.probability import FreqDist
 import jieba
-from langid.langid import LanguageIdentifier, model
+from langid import classify as lang_classify  # simple language classifier
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import textstat
 import spacy
-
+import argparse
+import yaml
 # Load the spaCy model
 nlp = spacy.load("en_core_web_sm")
-identifier = LanguageIdentifier.from_modelstring(model, norm_probs=True)
 
 # Download necessary NLTK data
 nltk.download('punkt')
@@ -34,7 +34,7 @@ except LookupError:
     nltk.download('punkt')
 
 try:
-    #Attempted to load tokenizers/punkt_tab/english/
+    # Attempt to load tokenizers/punkt_tab/english/
     nltk.data.find('tokenizers/punkt_tab')
 except LookupError:
     nltk.download('punkt_tab')
@@ -44,166 +44,243 @@ try:
 except LookupError:
     nltk.download('averaged_perceptron_tagger_eng')
 
-# Combine text from all rows as a list of strings, with no duplicates
+
 def combine_text(df):
-    # Split all texts by "||" and flatten the resulting list
+    """Combine text from all rows in a DataFrame.
+
+    Splits each text by the '||' delimiter, removes duplicates, and omits empty strings.
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing a 'text' column with textual data.
+
+    Returns:
+        list: A list of unique text segments.
+    """
     all_segments = [segment.strip() for text in df['text'] for segment in text.split('||')]
-    # Remove empty strings and return unique segments
     return list(set(segment for segment in all_segments if segment))
 
+
 def is_chinese(char):
+    """Check if a given character is a Chinese character.
+
+    Args:
+        char (str): A single character string.
+
+    Returns:
+        bool: True if the character is Chinese, False otherwise.
+    """
     return '\u4e00' <= char <= '\u9fff'
 
+
 def count_sentences(english_text, chinese_text):
-    # Count English sentences (split by newlines or sentence-ending punctuation)
+    """Count the total number of sentences in English and Chinese texts.
+
+    Splits text using common sentence-ending punctuation and newlines.
+
+    Args:
+        english_text (str): Text assumed to be in English.
+        chinese_text (str): Text assumed to be in Chinese.
+
+    Returns:
+        int: Total number of sentences.
+    """
+    # Count English sentences
     english_sentences = re.split(r'(?<=[.!?])\s+|\n+', english_text.strip())
     english_sentences = [s for s in english_sentences if s.strip()]
-    # print(f"English sentences: {len(english_sentences)}")
-    # print(f"English sentences: {english_sentences}")
     
-    # Count Chinese sentences (split by newlines or any punctuation)
+    # Count Chinese sentences
     chinese_sentences = re.split(r'[。！？\.\!?]\s*|\n+', chinese_text.strip())
     chinese_sentences = [s for s in chinese_sentences if s.strip()]
-    # print(f"Chinese sentences: {len(chinese_sentences)}")
-    # print(f"Chinese sentences: {chinese_sentences}")
     
-    # Combine counts
-    total = len(english_sentences) + len(chinese_sentences)
-    # print(f"Total sentences: {total}")
-    return total
+    return len(english_sentences) + len(chinese_sentences)
+
 
 def extract_named_entities(text):
+    """Extract named entities from a text using spaCy.
+
+    Args:
+        text (str): The input text.
+
+    Returns:
+        list: A list of tuples, where each tuple contains the entity text and its label.
+    """
     doc = nlp(text)
     entities = [(ent.text, ent.label_) for ent in doc.ents]
     return entities
 
-def extract_linguistic_features():
-    # Load the text data from a file
-    with open('step2_data/text_by_session.json', 'r', encoding='utf-8') as f:
-        text_data = f.read()
 
-    data = json.loads(text_data)
+def extract_linguistic_features(input_file):
+    """Extract linguistic features from a JSONL file containing session data.
+
+    The function processes each JSON object (session) in the input file, splits the
+    screen text logs by "||" to obtain segments, and computes a variety of linguistic
+    metrics, including language detection, lexical diversity, part-of-speech tagging,
+    named entity recognition, sentiment analysis, and text complexity.
+
+    Args:
+        input_file (str): Path to the JSONL file containing session data.
+
+    Returns:
+        dict: A dictionary containing the extracted linguistic features.
+    """
+    session_texts = []
+
+    # Read and process each session (each line)
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                session = json.loads(line)
+                logs = session.get("screen_text_logs", [])
+                for log in logs:
+                    text = log.get("text", "").strip()
+                    if text:
+                        segments = [seg.strip() for seg in text.split("||") if seg.strip()]
+                        session_texts.extend(segments)
+
+    # Combine all segments into one full text for analysis.
+    full_text = " ".join(session_texts)
     features = {}
-    full_text = ' '.join(data)
-    
-    # Language detection
-    lang, confidence = identifier.classify(full_text)
+
+    # Language detection using langid.
+    lang, confidence = lang_classify(full_text)
     features['detected_language'] = lang
     features['language_detection_confidence'] = confidence
-    
+
     features['contains_english'] = bool(re.search(r'[a-zA-Z]', full_text))
     features['contains_chinese'] = bool(re.search(r'[\u4e00-\u9fff]', full_text))
-    
-    # Separate Chinese and English text
-    chinese_text = ''.join(char for char in full_text if is_chinese(char))
-    english_text = ''.join(char for char in full_text if char.isascii())
-    
 
-    # print(f"Full text: {full_text[:100]}...")  # Print first 100 chars
-    # print(f"Chinese text length: {len(chinese_text)}")
-    # print(f"English text length: {len(english_text)}")
-
-    # Character counts
-    features['num_chinese_chars'] = len(chinese_text)
-    features['num_english_chars'] = len(re.findall(r'[a-zA-Z]', english_text))
-    features['num_digits'] = len(re.findall(r'\d', full_text))
-    features['num_punctuation_marks'] = len(re.findall(r'[^\w\s]', full_text))
-    
-    # English-specific features
-    if features['contains_english']:
-        english_words = word_tokenize(english_text)
-        english_words = [word.lower() for word in english_words if word.isalpha()]
-        features['english_word_count'] = len(english_words)
-        
-        if english_words:
-            # cast to 2 decimal places
-            features['avg_english_word_length'] = round(sum(len(word) for word in english_words) / len(english_words), 2)
-            
-            stop_words = set(stopwords.words('english'))
-            filtered_words = [word for word in english_words if word not in stop_words]
-            
-            word_freq = FreqDist(filtered_words)
-            features['top_5_english_words'] = ', '.join([word for word, _ in word_freq.most_common(5)])
-    
-    # Chinese-specific features
-    if features['contains_chinese']:
-        chinese_words = jieba.lcut(chinese_text)
-        chinese_words = [word for word in chinese_words if word.strip()]
-        features['chinese_word_count'] = len(chinese_words)
-        
-        if chinese_words:
-            chinese_word_freq = FreqDist(chinese_words)
-            features['top_5_chinese_words'] = ', '.join([word for word, _ in chinese_word_freq.most_common(5)])
-    
-    # Use the count_sentences function
-    sentence_count = count_sentences(english_text, chinese_text) or 1
-    # print(f"Final sentence count: {sentence_count}")
-    features['sentence_count'] = sentence_count
-
-    # Other features (URLs, emails, time, emojis)
-    features['contains_url'] = bool(re.search(r'(https?:\/\/)?[\w\-]+(\.[\w\-]+)+[\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#]', full_text))
-    features['contains_email'] = bool(re.search(r'[^@]+@[^@]+\.[^@]+', full_text))
-    features['contains_time'] = bool(re.search(r'\d{1,2}:\d{2}', full_text))
-    features['contains_emoji'] = bool(re.search(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]', full_text))
-    
     # Lexical diversity
-    all_words = []
-    print("English words in locals:", 'english_words' in locals())
-    print("Chinese words in locals:", 'chinese_words' in locals())
-    if 'english_words' in locals() and english_words:
-        all_words.extend(english_words)
-    if 'chinese_words' in locals() and chinese_words:
-        all_words.extend(chinese_words)
+    all_words = re.findall(r'\w+', full_text)
     unique_words = set(all_words)
     features['lexical_diversity'] = len(unique_words) / len(all_words) if all_words else 0
 
-    # Part-of-speech tagging for English
+    # For texts that contain English, compute additional features.
     if features['contains_english']:
-        pos_tags = nltk.pos_tag(english_words)
+        english_text = full_text
+
+        # Part-of-speech tagging
+        pos_tags = nltk.pos_tag(re.findall(r'\w+', english_text))
         pos_counts = Counter(tag for word, tag in pos_tags)
         features['most_common_pos'] = pos_counts.most_common(3)
 
-        # Named Entity Recognition
+        # Named Entity Recognition (NER)
         named_entities = extract_named_entities(english_text)
         features['named_entities'] = [ent[0] for ent in named_entities]
         features['named_entity_types'] = [ent[1] for ent in named_entities]
 
-    # Text complexity
-    if features['contains_english']:
+        # Text complexity metrics (Flesch Reading Ease and Flesch-Kincaid Grade)
         features['flesch_reading_ease'] = textstat.flesch_reading_ease(english_text)
         features['flesch_kincaid_grade'] = textstat.flesch_kincaid_grade(english_text)
 
-    # Sentiment analysis
-    sentiment_analyzer = SentimentIntensityAnalyzer()
-    sentiment_scores = sentiment_analyzer.polarity_scores(full_text)
+    # Sentiment analysis using VADER
+    sentiment_scores = SentimentIntensityAnalyzer().polarity_scores(full_text)
     features['sentiment_compound'] = sentiment_scores['compound']
     features['sentiment_positive'] = sentiment_scores['pos']
     features['sentiment_negative'] = sentiment_scores['neg']
     features['sentiment_neutral'] = sentiment_scores['neu']
 
-    # Emotion detection (using TextBlob for simplicity)
+    # Emotion analysis using TextBlob
     blob = TextBlob(full_text)
     features['subjectivity'] = blob.sentiment.subjectivity
 
-    
     return features
 
-def save_features(filename='step3_data/linguistic_features.csv'):
-    features = extract_linguistic_features()
-    fieldnames = list(features.keys())
-    #Check if the step2_data directory exists
-    if not os.path.exists("step3_data"):
-        os.makedirs("step3_data")
 
-    # Create or overwrite the file with headers
-    with open(filename, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerow(features)
+def save_features(input_file=None, output_file=None):
+    """
+    Extract linguistic features from the input file and save them to the output file.
+    The output is saved in CSV format by default, but supports JSON and JSONL formats based
+    on the provided file extension. In addition, the features are always saved to a corresponding
+    YAML file regardless of the output format provided.
 
-    print("Advanced linguistic features extracted and saved to CSV file.")
+    Args:
+        input_file (str): Path to the input JSONL file.
+        output_file (str): Path to the output file. The output format is determined by the file extension:
+            - .csv or unspecified: outputs as CSV with each feature as a column.
+            - .json: outputs as formatted JSON.
+            - .jsonl: outputs as JSON Lines.
+            The base name of the output file is used to also save a YAML file.
+    """
+    features = extract_linguistic_features(input_file)
+    output_dir = os.path.dirname(output_file)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    ext = os.path.splitext(output_file)[1].lower()
+
+    if ext == ".json":
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(features, f, indent=4)
+        print("Features extracted and saved to (JSON):", output_file)
+    elif ext == ".jsonl":
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(json.dumps(features) + "\n")
+        print("Features extracted and saved to (JSONL):", output_file)
+    else:
+        # Default to CSV format: write keys as header columns and their values as one row.
+        import csv
+        safe_features = {}
+        for key, value in features.items():
+            if isinstance(value, (list, dict)):
+                safe_features[key] = json.dumps(value)
+            else:
+                safe_features[key] = value
+
+        with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=list(safe_features.keys()))
+            writer.writeheader()
+            writer.writerow(safe_features)
+        print("Features extracted and saved to (CSV):", output_file)
+
+    # Always also save to YAML format.
+    yaml_output_file = os.path.splitext(output_file)[0] + ".yaml"
+    with open(yaml_output_file, 'w', encoding='utf-8') as yaml_file:
+        yaml.dump(features, yaml_file, default_flow_style=False, allow_unicode=True)
+    print("Features also extracted and saved to (YAML):", yaml_output_file)
+
+def main():
+    """
+    Extract linguistic features from session data files and save them as JSON files.
+    Uses a base input directory (default "step1_data") and base output directory (default "step2").
+    If a participant is provided, it processes only that participant folder;
+    otherwise, it processes all participant folders found in the base input directory.
+    """
+    parser = argparse.ArgumentParser(
+        description="Extract and save linguistic features from session data files."
+    )
+    parser.add_argument('--base_input_dir', type=str, default='step1_data',
+                        help='Base input directory containing participant folders (default: step1_data)')
+    parser.add_argument('--base_output_dir', type=str, default='step2_data',
+                        help='Base output directory for extracted linguistic features (default: step2_data)')
+    parser.add_argument('--participant', '-p', type=str, default=None,
+                        help='Participant folder name to process. If not specified, process all participants.')
+    parser.add_argument('--input_filename', type=str, default='clean_input.jsonl',
+                        help='Input file name inside each participant folder (default: clean_input.jsonl)')
+    parser.add_argument('--output_filename', type=str, default='linguistic_features.json',
+                        help='Output file name for the extracted features (default: linguistic_features.json)')
+    args = parser.parse_args()
+
+    if args.participant:
+        input_file = os.path.join(args.base_input_dir, args.participant, args.input_filename)
+        output_dir = os.path.join(args.base_output_dir, args.participant)
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, args.output_filename)
+        features = extract_linguistic_features(input_file)
+        save_features(features, output_file)
+    else:
+        # Process all participant folders under the base input directory
+        for participant in os.listdir(args.base_input_dir):
+            participant_dir = os.path.join(args.base_input_dir, participant)
+            if os.path.isdir(participant_dir):
+                input_file = os.path.join(participant_dir, args.input_filename)
+                output_dir = os.path.join(args.base_output_dir, participant)
+                os.makedirs(output_dir, exist_ok=True)
+                output_file = os.path.join(output_dir, args.output_filename)
+                features = extract_linguistic_features(input_file)
+                save_features(features, output_file)
 
 
+if __name__ == "__main__":
+    main()
 
     #attention
     #session time, sd, avg, reading speed estmation (words / min)

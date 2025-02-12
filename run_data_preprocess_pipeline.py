@@ -14,10 +14,10 @@ of the following steps:
 
 Usage:
     For one participant:
-        $ python run_data_preprocess_pipeline.py --participant <participant_id>
+        $ python run_data_preprocess_pipeline.py --participant <participant_id> [--timezone <timezone>] [--utc]
 
     For processing all participants:
-        $ python run_data_preprocess_pipeline.py --all
+        $ python run_data_preprocess_pipeline.py --all [--timezone <timezone>] [--utc]
 
 Notes:
     Ensure that the directories (e.g., participant_data, step1_data, resources) exist in the
@@ -56,7 +56,8 @@ def main():
     """Execute the data preprocessing pipeline.
 
     This function parses command-line arguments to determine whether to process a single
-    participant or all participants. It then executes the preprocessing steps in order:
+    participant or all participants. It also accepts a timezone parameter for UTC conversion.
+    The preprocessing steps are executed in the following order:
 
       1. Generate app package pairs.
       2. Clean screentext data.
@@ -80,7 +81,16 @@ def main():
         '--all', action='store_true',
         help="Process data for all participants (based on directories in 'participant_data')"
     )
+    parser.add_argument(
+        '--timezone', type=str, default="Australia/Melbourne",
+        help="Timezone for timestamp conversion (default: Australia/Melbourne)"
+    )
+    # New flag to override timezone with UTC
+    parser.add_argument('--utc', action='store_true', help="If set, overrides timezone with UTC")
     args = parser.parse_args()
+    
+    if args.utc:
+        args.timezone = "UTC"
 
     # Display the current working directory; expected to be the parent directory.
     current_dir = os.getcwd()
@@ -90,7 +100,7 @@ def main():
     if args.participant:
         # Process a single participant by passing the participant ID to the scripts.
         run_command(["python", "data_preprocessing/generate_app_package_pair.py", "-p", args.participant])
-        run_command(["python", "data_preprocessing/clean_screentext_jsonl.py", "-p", args.participant])
+        run_command(["python", "data_preprocessing/clean_screentext_jsonl.py", "-p", args.participant, "--timezone", args.timezone])
         run_command([
             "python", "data_preprocessing/generate_system_app_transition_filtered_files.py",
             "--base_dir", "step1_data", "--mode", "generate", "--threshold", "2.0"
@@ -99,7 +109,7 @@ def main():
     else:
         # Process all participants; assume scripts can handle processing all when no participant is specified.
         run_command(["python", "data_preprocessing/generate_app_package_pair.py"])
-        run_command(["python", "data_preprocessing/clean_screentext_jsonl.py"])
+        run_command(["python", "data_preprocessing/clean_screentext_jsonl.py", "--timezone", args.timezone])
         run_command([
             "python", "data_preprocessing/generate_system_app_transition_filtered_files.py",
             "--base_dir", "step1_data", "--mode", "generate", "--threshold", "2.0"
@@ -121,7 +131,7 @@ def main():
     for participant in participants:
         print(f"Processing participant {participant}")
         run_command(["python", "data_preprocessing/add_day_id.py", "step1_data", "-p", participant])
-        run_command(["python", "data_preprocessing/session_metrics_calculator_jsonl.py", "-p", participant])
+        run_command(["python", "data_preprocessing/session_metrics_calculator_jsonl.py", "-p", participant, "--timezone", args.timezone])
 
 
 if __name__ == '__main__':

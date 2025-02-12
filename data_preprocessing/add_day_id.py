@@ -3,8 +3,7 @@ Add Day ID Script
 
 This script processes JSONL files containing system app transition data for 
 each participant and assigns a day identifier (day_id) based on the date extracted 
-from the 'start_datetime' field. It can process either a specific participant (via a 
-command-line argument) or all participants in a given base directory.
+from the 'start_datetime' field. It can process either a specific participant or all participants.
 
 Usage:
     For a specific participant:
@@ -19,42 +18,44 @@ from datetime import datetime
 import argparse
 
 def process_participant_jsonl(input_file, output_file):
-    # Dictionary to store date to day_id mapping
+    """Process a participant JSONL file to add day IDs.
+    
+    It reads each line from the input file, extracts the date from the 'start_datetime' field,
+    assigns a sequential day_id to each unique date, and writes the updated records to the output file.
+    
+    Args:
+        input_file (str): Path to the input JSONL file.
+        output_file (str): Path to the output JSONL file.
+    
+    Returns:
+        int: Number of unique days found.
+    """
     date_to_day_id = {}
     current_day_id = 1
     
-    # Read input and write to output
     with open(input_file, 'r') as fin, open(output_file, 'w') as fout:
         for line in fin:
-            # Parse JSON
             data = json.loads(line.strip())
-            
-            # Extract date from start_datetime
-            date_str = data['start_datetime'].split()[0]  # Get YYYY-MM-DD part
-            
-            # Print and assign day_id if we haven't seen this date before
+            date_str = data['start_datetime'].split()[0]
             if date_str not in date_to_day_id:
                 print(f"New date found: {date_str} -> day_id: {current_day_id}")
                 date_to_day_id[date_str] = current_day_id
                 current_day_id += 1
-            
-            # Add day_id to the data
             data['day_id'] = date_to_day_id[date_str]
-            
-            # Write updated JSON line
             fout.write(json.dumps(data) + '\n')
     
-    # Print summary
-    # print("\nSummary of all dates:")
-    # for date, day_id in sorted(date_to_day_id.items()):
-    #     print(f"Date: {date} -> day_id: {day_id}")
-    
-    return len(date_to_day_id)  # Return number of unique days
+    return len(date_to_day_id)
 
 def process_all_participants(base_dir):
-    # Find all participant folders
-    participant_dirs = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))]
+    """Process all participant folders to add day IDs.
     
+    Iterates through each participant folder in the base directory, processes the corresponding
+    JSONL file to add day IDs, and prints a summary of the results.
+    
+    Args:
+        base_dir (str): Base directory containing participant folders.
+    """
+    participant_dirs = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))]
     total_stats = {}
     
     for participant_id in participant_dirs:
@@ -64,11 +65,9 @@ def process_all_participants(base_dir):
         if os.path.exists(input_file):
             print(f"\nProcessing participant: {participant_id}")
             print("-" * 50)
-            
             num_days = process_participant_jsonl(input_file, output_file)
             total_stats[participant_id] = num_days
     
-    # Print overall summary
     print("\nOverall Summary")
     print("=" * 50)
     print("Participant ID | Number of Days")
@@ -84,7 +83,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.participant:
-        # Process single participant
         input_file = os.path.join(args.base_dir, args.participant, 'system_app_transition_removed_2sec.jsonl')
         output_file = os.path.join(args.base_dir, args.participant, 'system_app_transition_removed_2sec_with_day_id.jsonl')
         if os.path.exists(input_file):
@@ -95,7 +93,6 @@ if __name__ == "__main__":
         else:
             print(f"Error: Input file not found for participant {args.participant}")
     else:
-        # Process all participants
         process_all_participants(args.base_dir)
 
 # python add_day_id.py step1_data -p 1234
