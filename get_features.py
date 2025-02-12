@@ -34,9 +34,22 @@ except LookupError:
     nltk.download('punkt')
 
 try:
+    #Attempted to load tokenizers/punkt_tab/english/
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab')
+
+try:
     nltk.data.find('taggers/averaged_perceptron_tagger_eng')
 except LookupError:
     nltk.download('averaged_perceptron_tagger_eng')
+
+# Combine text from all rows as a list of strings, with no duplicates
+def combine_text(df):
+    # Split all texts by "||" and flatten the resulting list
+    all_segments = [segment.strip() for text in df['text'] for segment in text.split('||')]
+    # Remove empty strings and return unique segments
+    return list(set(segment for segment in all_segments if segment))
 
 def is_chinese(char):
     return '\u4e00' <= char <= '\u9fff'
@@ -66,7 +79,7 @@ def extract_named_entities(text):
 
 def extract_linguistic_features():
     # Load the text data from a file
-    with open('step2_data/clean_screentext.json', 'r', encoding='utf-8') as f:
+    with open('step2_data/text_by_session.json', 'r', encoding='utf-8') as f:
         text_data = f.read()
 
     data = json.loads(text_data)
@@ -178,7 +191,7 @@ def extract_linguistic_features():
 def save_features(filename='step3_data/linguistic_features.csv'):
     features = extract_linguistic_features()
     fieldnames = list(features.keys())
-    #Check if the step3_data directory exists
+    #Check if the step2_data directory exists
     if not os.path.exists("step3_data"):
         os.makedirs("step3_data")
 
@@ -189,3 +202,11 @@ def save_features(filename='step3_data/linguistic_features.csv'):
         writer.writerow(features)
 
     print("Advanced linguistic features extracted and saved to CSV file.")
+
+
+
+    #attention
+    #session time, sd, avg, reading speed estmation (words / min)
+    # count of session
+    # word embeeding file
+    #a text input for parameter: session thershold,, time-window, n top words for xyz

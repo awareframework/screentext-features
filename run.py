@@ -1,12 +1,10 @@
-from get_screentext import get_screentext_between_time
-from clean_screentext import clean_screentext
+from archive.clean_screentext import clean_screentext
+from merge_by_session import merge_by_session
 from get_features import save_features
 #select screentext, clean it, and extract linguistic features then save the features to a file
 if __name__ == "__main__":
-    input_file = 'data/screentext.json'
-    output_file = 'step1_data/selected_screentext.json'
-    start_time = 20240912001327
-    end_time = 20240912132730
-    get_screentext_between_time(input_file, output_file, start_time, end_time)
+    input_file = 'step1_data/clean_df.json'
+    #output_file = 'step3_data/linguistic_features.json'
     clean_screentext()
-    save_features()
+    #merge_by_session()
+    #save_features()

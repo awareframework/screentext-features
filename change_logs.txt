@@ -1,0 +1,4 @@
+Nov 22 2024
+- Updated clean_screentext.py
+    1. Changed datetime from second to milisecond accuracy
+    2. fixed 0 value in duration_seconds by using timestamp to calclualte.

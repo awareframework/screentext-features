@@ -1,3 +1,10 @@
 step1_data/
 step2_data/
 step3_data/
+database_connection_info.json
+query_results/
+archive/
+participant_data/
+resources/
+data_preprocessing/__pycache__
+__pycache__/
