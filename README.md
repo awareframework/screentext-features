@@ -99,7 +99,7 @@ python run_data_preprocess_pipeline.py --all [--timezone <timezone>] [--workers 
 
 ### Step 2: Feature Extraction
 
-After preprocessing, extract linguistic features using `run.py`. This script reads the cleaned data from `step1_data` and saves features to `step2_data`.
+After preprocessing, extract linguistic features using `run.py`. This script reads the cleaned data from `step1_data` and saves features to `step2_data`. Feature extraction is performed in parallel by default for multiple participants.
 
 #### Usage
 
@@ -109,7 +109,7 @@ conda activate scrtxt
 python run.py --participant <participant_id>
 ```
 
-For processing all participants:
+For processing all participants in parallel:
 ```bash
 conda activate scrtxt
 python run.py
@@ -121,6 +121,7 @@ python run.py
 - `--participant`, `-p`: Participant folder to process (if not specified, processes all)
 - `--input_filename`: Input file name inside each participant folder (default: clean_input.jsonl)
 - `--output_filename`: Output file name for extracted features (default: linguistic_features.csv)
+- `--num_workers`: Number of worker processes to use (default: 75% of available CPU cores)
 
 ## Complete Example Workflow
 
@@ -134,12 +135,15 @@ while read requirement; do conda install --yes $requirement || pip install $requ
 # Step 1: Preprocess data for all participants
 python run_data_preprocess_pipeline.py --all
 
-# Step 2: Extract features for all participants
+# Step 2: Extract features for all participants (using parallel processing)
 python run.py
 
 # Alternatively, process a single participant
 python run_data_preprocess_pipeline.py --participant 1234
 python run.py --participant 1234
+
+# Control the number of worker processes for parallel processing
+python run.py --num_workers 4
 ```
 
 ## Output
