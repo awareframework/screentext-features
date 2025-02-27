@@ -124,3 +124,29 @@ After running both steps:
 - If you encounter memory issues during parallel processing, reduce the number of workers using the `--workers` option
 - Ensure that the `participant_data` directory exists and contains participant folders before running Step 1
 - Check that preprocessing completed successfully before running the feature extraction step
+
+### Memory Limitations
+
+The feature extraction process (Step 2) can be memory-intensive, especially when processing large input files:
+
+- **Segmentation Faults**: If you encounter segmentation faults, it's likely due to memory limitations when processing very large text files. The code now includes safeguards to handle large files by:
+  - Processing text in smaller chunks
+  - Limiting the amount of text analyzed for memory-intensive operations (NER, POS tagging)
+  - Adding robust error handling to prevent crashes
+
+- **RAM Dependency**: The maximum file size that can be processed depends on your system's available RAM:
+  - 8GB RAM systems: May struggle with files larger than ~10MB
+  - 16GB RAM systems: Should handle files up to ~30MB
+  - 32GB+ RAM systems: Can process larger files more efficiently
+
+- **Adjusting Memory Usage**: You can modify the following constants in `get_features.py` to adjust memory usage based on your system capabilities:
+  - `MAX_TEXT_CHUNK_SIZE`: Controls the maximum text size processed at once
+  - `MAX_TOKENS_FOR_INTENSIVE_ANALYSIS`: Limits token count for NLP operations
+
+- **Environment Considerations**: Always run the script within the proper conda environment:
+  ```bash
+  conda activate scrtxt
+  python run.py
+  ```
+
+If you continue to experience memory issues with very large files, consider preprocessing the input files to split them into smaller chunks before running the feature extraction.
