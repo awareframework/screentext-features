@@ -95,7 +95,7 @@ python run_data_preprocess_pipeline.py --all [--timezone <timezone>] [--workers 
 - `--all`: Process data for all participants in parallel
 - `--timezone`: Timezone for timestamp conversion (default: Australia/Melbourne)
 - `--utc`: If set, overrides timezone with UTC
-- `--workers`: Number of worker threads for parallel processing (default: 48)
+- `--workers`: Number of worker threads for parallel processing (default: 75% of available CPU cores)
 
 ### Step 2: Feature Extraction
 

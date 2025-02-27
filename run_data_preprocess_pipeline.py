@@ -29,6 +29,7 @@ import subprocess
 import sys
 import os
 import argparse
+import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -91,6 +92,9 @@ def process_full_participant_pipeline(participant, timezone):
 
 def main():
     """Execute the data preprocessing pipeline."""
+    # Calculate default workers as 75% of available CPU cores
+    default_workers = max(1, int(multiprocessing.cpu_count() * 0.75))
+    
     parser = argparse.ArgumentParser(
         description="Run data preprocessing pipeline for one or all participants."
     )
@@ -103,8 +107,8 @@ def main():
                         help="Timezone for timestamp conversion (default: Australia/Melbourne)")
     parser.add_argument('--utc', action='store_true',
                         help="If set, overrides timezone with UTC")
-    parser.add_argument('--workers', type=int, default=48,
-                        help="Number of worker threads for processing participants in parallel (default: 48)")
+    parser.add_argument('--workers', type=int, default=default_workers,
+                        help=f"Number of worker threads for processing participants in parallel (default: {default_workers}, 75% of CPU cores)")
     args = parser.parse_args()
 
     if args.utc:
