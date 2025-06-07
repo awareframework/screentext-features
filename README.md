@@ -2,7 +2,7 @@
 
 This repository processes screen text data to extract linguistic features. The workflow consists of two main steps:
 
-1. **Preprocess screen text data** using `run_data_preprocess_pipeline.py`
+1. **Preprocess screen text data** using `run_screentext_preprocess_pipeline.py`
 2. **Generate linguistic features** using `run.py`
 
 ## Prerequisites
@@ -68,7 +68,7 @@ Important requirements for your data:
 
 ### Step 1: Data Preprocessing
 
-The first step is to preprocess the raw screen text data using `run_data_preprocess_pipeline.py`. This script performs multiple preprocessing steps:
+The first step is to preprocess the raw screen text data using `run_screentext_preprocess_pipeline.py`. This script performs multiple preprocessing steps:
 
 1. Generate app package pairs
 2. Clean screentext data
@@ -81,13 +81,13 @@ The first step is to preprocess the raw screen text data using `run_data_preproc
 For processing a single participant:
 ```bash
 conda activate scrtxt
-python run_data_preprocess_pipeline.py --participant <participant_id> [--timezone <timezone>]
+python run_screentext_preprocess_pipeline.py --participant <participant_id> [--timezone <timezone>]
 ```
 
 For processing all participants in parallel:
 ```bash
 conda activate scrtxt
-python run_data_preprocess_pipeline.py --all [--timezone <timezone>] [--workers <num>]
+python run_screentext_preprocess_pipeline.py --all [--timezone <timezone>] [--workers <num>]
 ```
 
 #### Options
@@ -133,13 +133,13 @@ conda activate scrtxt
 while read requirement; do conda install --yes $requirement || pip install $requirement; done < requirements.txt
 
 # Step 1: Preprocess data for all participants
-python run_data_preprocess_pipeline.py --all
+python run_screentext_preprocess_pipeline.py --all
 
 # Step 2: Extract features for all participants (using parallel processing)
 python run.py
 
 # Alternatively, process a single participant
-python run_data_preprocess_pipeline.py --participant 1234
+python run_screentext_preprocess_pipeline.py --participant 1234
 python run.py --participant 1234
 
 # Control the number of worker processes for parallel processing
