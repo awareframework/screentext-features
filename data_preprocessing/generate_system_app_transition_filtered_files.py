@@ -123,14 +123,15 @@ def analyze_filtered_results(original_df, filtered_results):
     
     # Set x-axis ticks to show all threshold values
     ax.set_xticks(analysis_df['threshold'])
-    ax.tick_params(axis='x', rotation=45)
+    ax.tick_params(axis='x', rotation=45, labelsize=18)
+    ax.tick_params(axis='y', labelsize=18)
     
-    # Add grid and labels
-    ax.set_xlabel('Threshold (seconds)')
-    ax.set_ylabel('Percentage Removed')
-    ax.set_title('Impact Analysis of System App Transition Removal')
+    # Add grid and labels with larger font size
+    ax.set_xlabel('Threshold (seconds)', fontsize=20)
+    ax.set_ylabel('Percentage Removed', fontsize=20)
+    ax.set_title('Impact Analysis of System App Transition Removal', fontsize=22)
     ax.grid(True, linestyle='--', alpha=0.7)
-    ax.legend()
+    ax.legend(fontsize=18)
     
     # Adjust layout to prevent label cutoff
     plt.tight_layout()
@@ -265,11 +266,13 @@ def analyze_filtered_results_multi_participant(all_dfs):
     ax.plot(summary_df['threshold'], summary_df[('sessions_removal_percentage', 'mean')], 
             marker='o', color='orange', label='Sessions Removed (%)')
     
-    ax.set_xlabel('Threshold (seconds)')
-    ax.set_ylabel('Mean Percentage Removed (with std)')
-    ax.set_title('Impact Analysis of System App Transition Removal Across All Participants')
+    # Increase font size for labels, title, and ticks
+    ax.set_xlabel('Threshold (seconds)', fontsize=20)
+    ax.set_ylabel('Mean Percentage Removed (with std)', fontsize=20)
+    ax.set_title('Impact Analysis of System App Transition Removal', fontsize=22)
+    ax.tick_params(axis='both', labelsize=18)
     ax.grid(True, linestyle='--', alpha=0.7)
-    ax.legend()
+    ax.legend(fontsize=18)
     
     plt.tight_layout()
     return fig, analysis_df
